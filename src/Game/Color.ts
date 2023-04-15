@@ -1,8 +1,8 @@
 // When moving to c# this should be a struct
 class Color {
-  public readonly r: number;
-  public readonly g: number;
-  public readonly b: number;
+  public r: number;
+  public g: number;
+  public b: number;
   // Constructor
   constructor(r: number, g: number, b: number) {
     // Set The Color

@@ -11,4 +11,4 @@ const teapotModel = parseObj(teapotRaw);
 const teapot = new GameObject(new Vector3(0, 0, 0), new Vector3(0, 0, 0), new Vector3(0, 0, 0), teapotModel);
 // Create a new renderer
 const renderer = new Renderer();
-renderer.Draw(teapot);
+renderer.drawObjects([teapot]);
