@@ -24,7 +24,6 @@ const parseObj = (rawObj: string): Model => {
         parseInt(tokens[2], 10),
         parseInt(tokens[3], 10)
       ];
-      faces.push(face);
       if (face[0] < 0) {
         face[0] = verts.length + face[0];
       }
@@ -34,6 +33,10 @@ const parseObj = (rawObj: string): Model => {
       if (face[2] < 0) {
         face[2] = verts.length + face[2];
       }
+      face[0] -= 1;
+      face[1] -= 1;
+      face[2] -= 1;
+      faces.push(face);
     }
   }
   // return an object containing our vertices and faces

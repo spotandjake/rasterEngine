@@ -90,54 +90,52 @@ class Renderer {
     const scale = 200;
     // draw our model
     for (let i = 0; i < gameObj.getModel().faces.length; i++) {
-      const model = gameObj.getModel();
-      const face = model.faces[i];
-      const v0 = model.verts[face[0] - 1];
-      const v1 = model.verts[face[1] - 1];
-      const v2 = model.verts[face[2] - 1];
+      const { faces, verts } = gameObj.getModel();
+      const face = faces[i];
+      const v0 = verts[face[0]];
+      const v1 = verts[face[1]];
+      const v2 = verts[face[2]];
       if (v0 && v1 && v2) {
         if (this.isCounterClockWise(v0, v1, v2)) {
-          // create some greyscale values from the model's Z values
+          // Get Our New Vertex's
+          const vert0 = v0.clone();
+          const vert1 = v1.clone();
+          const vert2 = v2.clone();
+          // create some grey scale values from the model's Z values
           // TODO: We really should not be setting the vertex colors here
           const v0value = v0.z / 4.5 + 0.5;
           const v1value = v1.z / 4.5 + 0.5;
           const v2value = v2.z / 4.5 + 0.5;
+          // TODO: Apply model transformations
+          // TODO: Apply model scale
+          // TODO: Apply model rotation
+          // TODO: Apply model translation
           // TODO: Apply world transformations
+          // TODO: Apply cam rotation
+          // TODO: Apply cam translation
           // Draw Triangle
           switch (renderMode) {
             case RenderMode.Solid:
               // TODO: Separate screenSpace rendering
               this.fillTriangle(
                 new Vector3(
-                  centerX + v0.x * scale,
-                  centerY - v0.y * scale,
-                  (v0.z - zNear) / (zFar - zNear)
+                  centerX + vert0.x * scale,
+                  centerY - vert0.y * scale,
+                  (vert0.z - zNear) / (zFar - zNear)
                 ),
                 new Vector3(
-                  centerX + v1.x * scale,
-                  centerY - v1.y * scale,
-                  (v1.z - zNear) / (zFar - zNear)
+                  centerX + vert1.x * scale,
+                  centerY - vert1.y * scale,
+                  (vert1.z - zNear) / (zFar - zNear)
                 ),
                 new Vector3(
-                  centerX + v2.x * scale,
-                  centerY - v2.y * scale,
-                  (v2.z - zNear) / (zFar - zNear)
+                  centerX + vert2.x * scale,
+                  centerY - vert2.y * scale,
+                  (vert2.z - zNear) / (zFar - zNear)
                 ),
-                new Color(
-                  v0value,
-                  v0value,
-                  v0value
-                ),
-                new Color(
-                  v1value,
-                  v1value,
-                  v1value
-                ),
-                new Color(
-                  v2value,
-                  v2value,
-                  v2value
-                )
+                new Color(v0value, v0value, v0value),
+                new Color(v1value, v1value, v1value),
+                new Color(v2value, v2value, v2value)
               );
               break;
             case RenderMode.WireFrame:

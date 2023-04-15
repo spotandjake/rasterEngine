@@ -10,6 +10,9 @@ class Vector3 {
     this.z = z;
   } 
   // Methods
+  public clone(): Vector3 {
+    return new Vector3(this.x, this.y, this.z);
+  }
   public crossProduct(v: Vector3): Vector3 {
     return new Vector3(
       this.y * v.z - this.z * v.y,
