@@ -1,3 +1,4 @@
+// When moving to c# this should be a struct
 class Color {
   public readonly r: number;
   public readonly g: number;

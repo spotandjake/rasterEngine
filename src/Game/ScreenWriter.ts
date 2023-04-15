@@ -5,20 +5,19 @@ class ScreenWriter {
   // Internals
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private frameBuffer: ImageData = new ImageData(0, 0);
+  private frameBuffer: ImageData = new ImageData(1, 1);
   private width: number = 0;
   private height: number = 0;
   // Constructor
   constructor() {
-      // Create The Canvas
-      this.canvas = document.createElement('canvas');
-      // Get The Context
-      this.ctx = this.canvas.getContext('2d')!;
-      // Set The Size
-      this.setSize(window.innerWidth, window.innerHeight);
-      // Add The Canvas to The Screen
-      document.querySelector<HTMLDivElement>('#app')!.appendChild(this.canvas);
-
+    // Create The Canvas
+    this.canvas = document.createElement('canvas');
+    // Get The Context
+    this.ctx = this.canvas.getContext('2d')!;
+    // Set The Size
+    this.setSize(window.innerWidth, window.innerHeight);
+    // Add The Canvas to The Screen
+    document.querySelector<HTMLDivElement>('#app')!.appendChild(this.canvas);
   }
   // Internal Methods
   private setSize(width: number, height: number): void {
@@ -31,6 +30,13 @@ class ScreenWriter {
     this.frameBuffer = this.ctx.createImageData(width, height);
   }
   // Public Methods
+  // TODO: Expose onResize
+  public getWidth(): number {
+    return this.width;
+  }
+  public getHeight(): number {
+    return this.height;
+  }
   public clearBackground(color: Color): void {
     const { width, height } = this;
     // Set The Background Color
@@ -62,6 +68,56 @@ class ScreenWriter {
   }
   public drawFrame(): void {
     this.ctx.putImageData(this.frameBuffer, 0, 0);     
+  }
+  // Helpers
+  public drawLine(x0: number, y0: number, x1: number, y1: number): void {
+    const { frameBuffer, width } = this;
+    // Convert all coordinates to ints
+    x0 |= 0;
+    y0 |= 0;
+    x1 |= 0;
+    y1 |= 0;
+    // Get The Binary Pixel Data
+    const frameData = frameBuffer.data;
+    // Perform the algorithm
+    const steep = Math.abs(y1 - y0) > Math.abs(x1 - x0);
+    if (steep) {
+      // Flip Our X's and Y's
+      let tmp;
+      tmp = x0; x0 = y0; y0 = tmp;
+      tmp = x1; x1 = y1; y1 = tmp;
+    }
+    if (x0 > x1) {
+      // Flip Our X's and Y's
+      let tmp;
+      tmp = x0; x0 = x1; x1 = tmp;
+      tmp = y0; y0 = y1; y1 = tmp;
+    }
+    let yStep = y0 < y1 ? 1 : -1;
+    let deltaX = x1 - x0;
+    let deltaY = Math.abs(y1 - y0);
+    let error = 0;
+    let index = 0;
+    let y = y0;
+    for (let x = x0; x <= x1; x++) {
+      // index is vertical coordinate times width, plus horizontal coordinate, 
+      // times 4 because every pixel consists of 4 bytes
+      if (steep) {
+        index = (x * width + y) * 4; // y, x
+      } else {
+        index = (y * width + x) * 4; // x, y
+      }
+      // set RGBA values to 255 producing opaque white pixel
+      frameData[index] = 255;
+      frameData[index + 1] = 255;
+      frameData[index + 2] = 255;
+      frameData[index + 3] = 255;
+      error += deltaY;
+      if ((error << 1) >= deltaX) {
+        y += yStep;
+        error -= deltaX;
+      }
+    }
   }
 }
 
