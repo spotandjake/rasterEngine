@@ -12,8 +12,8 @@ export enum RenderMode {
 // This is our renderer
 class Renderer {
   // Constants
-  private readonly zFar = -2.5;
-  private readonly zNear = 2.5;
+  private readonly zFar = -1;
+  private readonly zNear = 1024;
   // Internals
   private screenWriter: ScreenWriter;
   // use Uint16 because we only need a little precision and we save 2 bytes per pixel this way
@@ -53,6 +53,7 @@ class Renderer {
     for (let y = minY; y < maxY; y++) {
       for (let x = minX; x < maxX; x++) {
         // sample from the center of the pixel, not the top-left corner
+        // This gives us a primitive form of anti-aliasing as well
         p.x = x + 0.5;
         p.y = y + 0.5;
         // calculate vertex weights
@@ -84,65 +85,70 @@ class Renderer {
   }
   private renderModel(gameObj: GameObject): void {
     const { screenWriter, renderMode, zFar, zNear } = this;
+    // Get Model Data
+    const { faces, verts } = gameObj.getModel();
+    const position = gameObj.getPosition();
+    const rotation = gameObj.getRotation();
+    const scale = gameObj.getScale();
     // Render The Object
     const centerX = screenWriter.getWidth() / 2.0;
-    const centerY = screenWriter.getHeight() / 2.0 + 300;  
-    const scale = 200;
+    const centerY = screenWriter.getHeight() / 2.0;  
     // draw our model
-    for (let i = 0; i < gameObj.getModel().faces.length; i++) {
-      const { faces, verts } = gameObj.getModel();
+    for (let i = 0; i < faces.length; i++) {
       const face = faces[i];
-      const v0 = verts[face[0]];
-      const v1 = verts[face[1]];
-      const v2 = verts[face[2]];
+      let v0 = verts[face[0]];
+      let v1 = verts[face[1]];
+      let v2 = verts[face[2]];
       if (v0 && v1 && v2) {
         if (this.isCounterClockWise(v0, v1, v2)) {
-          // Get Our New Vertex's
-          const vert0 = v0.clone();
-          const vert1 = v1.clone();
-          const vert2 = v2.clone();
-          // create some grey scale values from the model's Z values
-          // TODO: We really should not be setting the vertex colors here
-          const v0value = v0.z / 4.5 + 0.5;
-          const v1value = v1.z / 4.5 + 0.5;
-          const v2value = v2.z / 4.5 + 0.5;
-          // TODO: Apply model transformations
-          // TODO: Apply model scale
+          // Apply model transformations
+          v0 = v0.add(position);
+          v1 = v1.add(position);
+          v2 = v2.add(position);
+          // Apply model scale
+          v0 = v0.mul(scale);
+          v1 = v1.mul(scale);
+          v2 = v2.mul(scale);
           // TODO: Apply model rotation
           // TODO: Apply model translation
           // TODO: Apply world transformations
           // TODO: Apply cam rotation
           // TODO: Apply cam translation
+          // create some grey scale values from the model's Z values
+          // TODO: We really should not be setting the vertex colors here
+          const v0value = v0.z / scale.z / 4.5 + 0.5;
+          const v1value = v1.z / scale.z / 4.5 + 0.5;
+          const v2value = v2.z / scale.z / 4.5 + 0.5;
           // Draw Triangle
           switch (renderMode) {
             case RenderMode.Solid:
               // TODO: Separate screenSpace rendering
               this.fillTriangle(
                 new Vector3(
-                  centerX + vert0.x * scale,
-                  centerY - vert0.y * scale,
-                  (vert0.z - zNear) / (zFar - zNear)
+                  centerX + v0.x,
+                  centerY - v0.y,
+                  (v0.z - zNear) / (zFar - zNear)
                 ),
                 new Vector3(
-                  centerX + vert1.x * scale,
-                  centerY - vert1.y * scale,
-                  (vert1.z - zNear) / (zFar - zNear)
+                  centerX + v1.x,
+                  centerY - v1.y,
+                  (v1.z - zNear) / (zFar - zNear)
                 ),
                 new Vector3(
-                  centerX + vert2.x * scale,
-                  centerY - vert2.y * scale,
-                  (vert2.z - zNear) / (zFar - zNear)
+                  centerX + v2.x,
+                  centerY - v2.y,
+                  (v2.z - zNear) / (zFar - zNear)
                 ),
-                new Color(v0value, v0value, v0value),
-                new Color(v1value, v1value, v1value),
-                new Color(v2value, v2value, v2value)
+                new Color(v0value * 1, v0value * 0, v0value* 0 ),
+                new Color(v1value * 0, v1value * 1, v1value * 0),
+                new Color(v2value * 0, v2value * 0, v2value * 1)
               );
               break;
             case RenderMode.WireFrame:
               // TODO: Support proper screenSpace, take into account z
-              screenWriter.drawLine(centerX + v0.x * scale, centerY - v0.y * scale, centerX + v1.x * scale, centerY - v1.y * scale);
-              screenWriter.drawLine(centerX + v1.x * scale, centerY - v1.y * scale, centerX + v2.x * scale, centerY - v2.y * scale);
-              screenWriter.drawLine(centerX + v2.x * scale, centerY - v2.y * scale, centerX + v0.x * scale, centerY - v0.y * scale);
+              screenWriter.drawLine(centerX + v0.x, centerY - v0.y, centerX + v1.x, centerY - v1.y);
+              screenWriter.drawLine(centerX + v1.x, centerY - v1.y, centerX + v2.x, centerY - v2.y);
+              screenWriter.drawLine(centerX + v2.x, centerY - v2.y, centerX + v0.x, centerY - v0.y);
               break;
           }
         }
@@ -156,6 +162,7 @@ class Renderer {
   public drawObjects(gameObject: GameObject[]): void {
     const { depthBuffer } = this;
     // Clear Depth Buffer
+    this.screenWriter.clearBackground(new Color(100, 149, 237));
     depthBuffer.clear();
     // Render the Objects
     for (const gameObj of gameObject) {
