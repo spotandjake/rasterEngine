@@ -39,10 +39,10 @@ class Renderer {
   private fillTriangle(v0: Vector3, v1: Vector3, v2: Vector3, c0: Color, c1: Color, c2: Color): void {
     const { screenWriter, depthBuffer } = this;
     // Calc The Bounding Box
-    const minX = Math.floor(Math.min(v0.x, v1.x, v2.x));
-    const maxX = Math.ceil(Math.max(v0.x, v1.x, v2.x));
-    const minY = Math.floor(Math.min(v0.y, v1.y, v2.y));
-    const maxY = Math.ceil(Math.max(v0.y, v1.y, v2.y));
+    let minX = Math.floor(Math.min(v0.x, v1.x, v2.x));
+    let maxX = Math.ceil(Math.max(v0.x, v1.x, v2.x));
+    let minY = Math.floor(Math.min(v0.y, v1.y, v2.y));
+    let maxY = Math.ceil(Math.max(v0.y, v1.y, v2.y));
     // precalculate the area of the parallelogram defined by our triangle
     const area = this.cross(v0, v1, v2);
     // p is our 2D pixel location point
@@ -50,6 +50,12 @@ class Renderer {
     // fragment is the resulting pixel with all the vertex attributes interpolated
     const pos = new Vector3(0, 0, 0);
     const color = new Color(0, 0, 0);
+    // Clip the triangle to the screen
+    if (minX < 0) minX = 0;
+    if (maxX > screenWriter.getWidth()) maxX = screenWriter.getWidth();
+    if (minY < 0) minY = 0;
+    if (maxY > screenWriter.getHeight()) maxY = screenWriter.getHeight();
+    // Render Triangle
     for (let y = minY; y < maxY; y++) {
       for (let x = minX; x < maxX; x++) {
         // sample from the center of the pixel, not the top-left corner

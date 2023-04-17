@@ -10,7 +10,7 @@ const teapotModel = parseObj(teapotRaw);
 // const bunnyRaw = await fetch('./bunny.obj').then(res => res.text());
 // const bunnyModel = parseObj(bunnyRaw);
 // Create a new gameObject
-const teapot = new GameObject(new Vector3(0, -1, 3), new Vector3(0, 0, 0), new Vector3(200, 200, 200), teapotModel);
+const teapot = new GameObject(new Vector3(0, -1.5, 1), new Vector3(90, 0, 0), new Vector3(150, 150, 150), teapotModel);
 // const bunny = new GameObject(new Vector3(0, -0.1, 0), new Vector3(0, 0, 0), new Vector3(5000, 5000, 5000), bunnyModel);
 // Create a new renderer
 const renderer = new Renderer();
