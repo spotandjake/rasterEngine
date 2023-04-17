@@ -1,23 +1,55 @@
-import './style.css'
+import './style.css';
 // Imports
-import Renderer from './Game/Renderer';
-import GameObject from './Game/GameObject';
-import Vector3 from './Game/Vector3';
-import parseObj from './ObjParser';
+import './Reference/main';
+import * as Util from './Reference/utils';
+import ModelParser from './ModelParser';
+// loadImage
+const imgCanvas = document.createElement('canvas');
+const imgCtx = imgCanvas.getContext('2d')!;
+let loadImage = (imageUrl: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.src = imageUrl;
+    image.onload = () => resolve(image);
+    image.onerror = (err) => reject(err);
+  });
+}
+// Slightly Different than normal texture because we are chopping it up
+let loadSkyBoxTexture = async (imageUrl: string, imgWidth: number, imgHeight: number) => {
+  let imageItem = await loadImage(imageUrl);
+  // Load Into Canvas
+  imgCtx.drawImage(imageItem, 0, 0, imgWidth, imgHeight);
+  // Get Size
+  const size = Math.ceil(imgWidth / 4);
+  // Get Image Data
+  const top = imgCtx.getImageData(size, 0, size, size);
+  const bottom = imgCtx.getImageData(size, size * 2, size, size);
+  const front = imgCtx.getImageData(size, size, size, size);
+  const back = imgCtx.getImageData(size * 3, size, size, size);
+  const right = imgCtx.getImageData(size * 2, size, size, size);
+  const left = imgCtx.getImageData(0, size, size, size);
+  // Get Bitmaps
+  const topBitmap = Util.convertImageDataToBitmap(top, size, size);
+  const bottomBitmap = Util.convertImageDataToBitmap(bottom, size, size);
+  const frontBitmap = Util.convertImageDataToBitmap(front, size, size);
+  const backBitmap = Util.convertImageDataToBitmap(back, size, size);
+  const rightBitmap = Util.convertImageDataToBitmap(right, size, size);
+  const leftBitmap = Util.convertImageDataToBitmap(left, size, size);
+  // Return Our Textures
+  return {
+    skyBoxTop: topBitmap,
+    skyBoxBottom: bottomBitmap,
+    skyBoxFront: frontBitmap,
+    skyBoxBack: backBitmap,
+    skyBoxRight: rightBitmap,
+    skyBoxLeft: leftBitmap
+  }
+}
 // Load Assets
-const teapotRaw = await fetch('./teapot.obj').then(res => res.text());
-const teapotModel = parseObj(teapotRaw);
-// const bunnyRaw = await fetch('./bunny.obj').then(res => res.text());
-// const bunnyModel = parseObj(bunnyRaw);
-// Create a new gameObject
-const teapot = new GameObject(new Vector3(0, -1.5, 1), new Vector3(90, 0, 0), new Vector3(150, 150, 150), teapotModel);
-// const bunny = new GameObject(new Vector3(0, -0.1, 0), new Vector3(0, 0, 0), new Vector3(5000, 5000, 5000), bunnyModel);
-// Create a new renderer
-const renderer = new Renderer();
-renderer.drawObjects([teapot]);
-// let frame = () => {
-//   teapot.setPosition(teapot.getPosition().add(new Vector3(1, 0, 0)));
-//   renderer.drawObjects([teapot]);
-//   window.requestAnimationFrame(frame);
-// }
-// window.requestAnimationFrame(frame);
+const monkeyObj = await fetch('./monkey.obj').then((res) => res.text());
+const skyBoxTex = await loadSkyBoxTexture('./imgs/skybox3.png', 2048, 1536);
+console.log(skyBoxTex);
+// ParseModel
+const modelParser = new ModelParser();
+const monkeyModel = modelParser.ObjParser(monkeyObj);
+// Start The Engine
