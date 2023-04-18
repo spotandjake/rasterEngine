@@ -24,11 +24,11 @@ const NORMAL_LENGTH = 0.1;
 export class Renderer extends Bitmap {
   // Internals
   public camera: Camera;
-  public zClipNear: number;
-  public zBuffer: Float32Array;
+  private zClipNear: number;
+  private zBuffer: Float32Array;
   public sun: DirectionalLight;
-  public ambient: number;
-  public specularIntensity: number | undefined;
+  private ambient: number;
+  private specularIntensity: number | undefined;
   public transform: Mat4;
   private difuseMap: Bitmap | undefined;
   private normalMap: Bitmap | undefined;
@@ -75,7 +75,7 @@ export class Renderer extends Bitmap {
       Util.convertVectorToColorHex(v.color)
     );
   }
-  public drawLine(v0: Vertex, v1: Vertex): void {
+  private drawLine(v0: Vertex, v1: Vertex): void {
     v0 = this.viewTransform(v0);
     v1 = this.viewTransform(v1);
     // z-Near clipping
@@ -193,7 +193,7 @@ export class Renderer extends Bitmap {
       }
     }
   }
-  public drawFace(f: Face): void {
+  private drawFace(f: Face): void {
     this.drawTriangle(f.v0, f.v1, f.v2);
   }
   // Expect the input vertices to be in the local space
@@ -345,7 +345,7 @@ export class Renderer extends Bitmap {
     }
   }
   // Expect the input vertices to be in the camera space(view space)
-  public drawTriangleViewSpace(vp0: Vertex, vp1: Vertex, vp2: Vertex): void {
+  private drawTriangleViewSpace(vp0: Vertex, vp1: Vertex, vp2: Vertex): void {
     const z0 = vp0.pos.z;
     const z1 = vp1.pos.z;
     const z2 = vp2.pos.z;
@@ -513,7 +513,7 @@ export class Renderer extends Bitmap {
     this.renderFlag = this.defaultRenderFlag;
   }
   // Local space -> World space
-  public modelTransform(v: Vertex): Vertex {
+  private modelTransform(v: Vertex): Vertex {
     const newPos = this.transform.mulVector(v.pos, 1.0);
     const newNor =
       v.normal != undefined
@@ -531,10 +531,8 @@ export class Renderer extends Bitmap {
     return new Vertex(newPos, v.color, v.texCoord, newNor, newTan, newBiTan);
   }
   // World space -> Cemera space(view space)
-  public viewTransform(v: Vertex): Vertex {
-    const newPos = this.camera.cameraTransform.mulVector(
-      new Vec3(v.pos.x, v.pos.y, v.pos.z)
-    );
+  private viewTransform(v: Vertex): Vertex {
+    const newPos = this.camera.cameraTransform.mulVector(v.pos);
     newPos.z *= -1.0;
 
     const newNor =
@@ -552,12 +550,11 @@ export class Renderer extends Bitmap {
 
     return new Vertex(newPos, v.color, v.texCoord, newNor, newTan, newBiTan);
   }
-  public renderPixel(p: Vec3, c: number): void {
-    if (p.z >= this.zBuffer[p.x + (this.height - 1 - p.y) * this.width]) {
+  private renderPixel(p: Vec3, c: number): void {
+    if (p.x < 0 || p.x >= this.width || p.y < 0 || p.y >= this.height) {
       return;
     }
-
-    if (p.x < 0 || p.x >= this.width || p.y < 0 || p.y >= this.height) {
+    if (p.z >= this.zBuffer[p.x + (this.height - 1 - p.y) * this.width]) {
       return;
     }
 
@@ -586,13 +583,6 @@ export class Renderer extends Bitmap {
       this.defaultRenderFlag &= ~flag;
     } else {
       this.defaultRenderFlag |= flag;
-    }
-  }
-  // Public Methods
-  public drawGameObjects(camera: GameObject, gameObjects: GameObject[]): void {
-    // For Each GameObject
-    for (const gameObject of gameObjects) {
-      // Get Game Object Data
     }
   }
 }

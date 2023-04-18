@@ -54,7 +54,6 @@ export class Engine {
 
         let image = new Image();
         image.src = imageURL;
-        image.crossOrigin = "Anonymous";
         image.onload = () => {
           this.tmpCvs.setAttribute("width", imageWidth + "px");
           this.tmpCvs.setAttribute("height", imageHeight + "px");
