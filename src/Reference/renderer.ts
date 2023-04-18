@@ -5,9 +5,10 @@ import * as Resources from "./resources";
 import * as Util from "./utils";
 import { Constants } from "./constants";
 import { DirectionalLight } from "./light";
-
+import { Model } from "./model";
 import { Camera } from "./camera";
-import { Face } from './face';
+import { Face } from "./face";
+import GameObject from "../Game/GameObject";
 // Render flags
 export const RENDER_CW = 0;
 export const RENDER_CCW = 1 << 0;
@@ -17,48 +18,41 @@ export const CALC_LIGHT = 1 << 3;
 export const RENDER_VERTEX_NORMAL = 1 << 4;
 export const RENDER_TANGENT_SPACE = 1 << 5;
 export const FLIP_NORMALMAP_Y = 1 << 6;
-export const DISABLE_NORMAL_MAPPING = 1 << 7;
 
 const NORMAL_LENGTH = 0.1;
 
 export class Renderer extends Bitmap {
+  // Internals
   public camera: Camera;
   public zClipNear: number;
   public zBuffer: Float32Array;
   public sun: DirectionalLight;
   public ambient: number;
-  public specularIntensity: number;
+  public specularIntensity: number | undefined;
   public transform: Mat4;
-  private difuseMap: any; // TODO: this cannot be an any type
-  private normalMap: any; // TODO: this cannot be an any type
+  private difuseMap: Bitmap | undefined;
+  private normalMap: Bitmap | undefined;
   private tbn: Mat4;
-  private defaultRenderFlag: number;
-  private renderFlag: number;
+  public defaultRenderFlag: number;
+  public renderFlag: number;
   constructor(width: number, height: number, camera: Camera) {
     super(width, height);
-
     this.camera = camera;
-
     this.zClipNear = 0.2;
     this.zBuffer = new Float32Array(width * height);
-
     // Shader variables
     {
       this.sun = new DirectionalLight();
-
       this.ambient = 0.25;
       this.specularIntensity = 1000;
-
       this.transform = new Mat4();
       //@ts-ignore
       this.difuseMap = Resources.textures.sample0;
       //@ts-ignore
       this.normalMap = Resources.textures.default_normal;
-
       // Tangent matrix
       this.tbn = new Mat4();
     }
-
     this.defaultRenderFlag = RENDER_CW | CALC_LIGHT;
     this.renderFlag = 0;
   }
@@ -69,44 +63,42 @@ export class Renderer extends Bitmap {
       this.zBuffer[i] = 100000.0;
     }
   }
-  public drawPoint(v: Vertex): void {
+  private drawPoint(v: Vertex): void {
     v = this.viewTransform(v);
     if (v.pos.z < this.zClipNear) return;
-    const sx = Util.int(
-      (v.pos.x / v.pos.z) * Constants.FOV + Constants.WIDTH / 2.0
-    );
+    const sx = Util.int((v.pos.x / v.pos.z) * Constants.FOV + this.width / 2.0);
     const sy = Util.int(
-      (v.pos.y / v.pos.z) * Constants.FOV + Constants.HEIGHT / 2.0
+      (v.pos.y / v.pos.z) * Constants.FOV + this.height / 2.0
     );
-    this.renderPixel(new Vec3(sx, sy, v.pos.z), v.color);
+    this.renderPixel(
+      new Vec3(sx, sy, v.pos.z),
+      Util.convertVectorToColorHex(v.color)
+    );
   }
   public drawLine(v0: Vertex, v1: Vertex): void {
     v0 = this.viewTransform(v0);
     v1 = this.viewTransform(v1);
     // z-Near clipping
-    if (v0.pos.z < this.zClipNear && v1.pos.z < this.zClipNear) {
-      return;
-    }
+    if (v0.pos.z < this.zClipNear && v1.pos.z < this.zClipNear) return;
     if (v0.pos.z < this.zClipNear) {
-      let per = (this.zClipNear - v0.pos.z) / (v1.pos.z - v0.pos.z);
+      const per = (this.zClipNear - v0.pos.z) / (v1.pos.z - v0.pos.z);
       v0.pos = v0.pos.add(v1.pos.sub(v0.pos).mul(per));
       v0.color = Util.lerpVector2(v0.color, v1.color, per);
     }
     if (v1.pos.z < this.zClipNear) {
-      let per = (this.zClipNear - v1.pos.z) / (v0.pos.z - v1.pos.z);
-
+      const per = (this.zClipNear - v1.pos.z) / (v0.pos.z - v1.pos.z);
       v1.pos = v1.pos.add(v0.pos.sub(v1.pos).mul(per));
       v1.color = Util.lerpVector2(v1.color, v0.color, per);
     }
     // Transform a vertices in camera space to viewport space at one time (Avoid heavy matrix multiplication)
     // Projection transform + viewport transform
     let p0 = new Vec2(
-      (v0.pos.x / v0.pos.z) * Constants.FOV + Constants.WIDTH / 2.0 - 0.5,
-      (v0.pos.y / v0.pos.z) * Constants.FOV + Constants.HEIGHT / 2.0 - 0.5
+      (v0.pos.x / v0.pos.z) * Constants.FOV + this.width / 2.0 - 0.5,
+      (v0.pos.y / v0.pos.z) * Constants.FOV + this.height / 2.0 - 0.5
     );
     let p1 = new Vec2(
-      (v1.pos.x / v1.pos.z) * Constants.FOV + Constants.WIDTH / 2.0 - 0.5,
-      (v1.pos.y / v1.pos.z) * Constants.FOV + Constants.HEIGHT / 2.0 - 0.5
+      (v1.pos.x / v1.pos.z) * Constants.FOV + this.width / 2.0 - 0.5,
+      (v1.pos.y / v1.pos.z) * Constants.FOV + this.height / 2.0 - 0.5
     );
     // Render left to right
     if (p1.x < p0.x) {
@@ -123,23 +115,26 @@ export class Renderer extends Bitmap {
     let y1 = Math.ceil(p1.y);
 
     if (x0 < 0) x0 = 0;
-    if (x1 > Constants.WIDTH) x1 = Constants.WIDTH;
+    if (x1 > this.width) x1 = this.width;
     if (y0 < 0) y0 = 0;
-    if (y1 > Constants.HEIGHT) y1 = Constants.HEIGHT;
+    if (y1 > this.height) y1 = this.height;
 
-    let dx = p1.x - p0.x;
-    let dy = p1.y - p0.y;
+    const dx = p1.x - p0.x;
+    const dy = p1.y - p0.y;
 
-    let m = Math.abs(dy / dx);
+    const m = Math.abs(dy / dx);
 
     if (m <= 1) {
+      // perCache
+      const perCache = p1.x - p0.x;
+      // Fill X
       for (let x = x0; x < x1; ++x) {
-        let per = (x - p0.x) / (p1.x - p0.x);
+        const per = (x - p0.x) / perCache;
 
-        let y = p0.y + (p1.y - p0.y) * per;
-        let z = 1 / ((1 - per) / v0.pos.z + per / v1.pos.z);
+        const y = p0.y + (p1.y - p0.y) * per;
+        const z = 1 / ((1 - per) / v0.pos.z + per / v1.pos.z);
 
-        let c = Util.lerp2AttributeVec3(
+        const c = Util.lerp2AttributeVec3(
           v0.color,
           v1.color,
           1 - per,
@@ -149,14 +144,17 @@ export class Renderer extends Bitmap {
           z
         );
 
-        this.renderPixel(new Vec3(Util.int(x), Util.int(y), z), c);
+        this.renderPixel(
+          new Vec3(Util.int(x), Util.int(y), z),
+          Util.convertVectorToColorHex(c)
+        );
       }
     } else {
       if (p1.y < p0.y) {
         const tmpP = p0;
         p0 = p1;
         p1 = tmpP;
-        const tmpV= v0;
+        const tmpV = v0;
         v0 = v1;
         v1 = tmpV;
       }
@@ -165,19 +163,21 @@ export class Renderer extends Bitmap {
       y0 = Math.ceil(p0.y);
       x1 = Math.ceil(p1.x);
       y1 = Math.ceil(p1.y);
-
+      // Cap To Screen
       if (x0 < 0) x0 = 0;
-      if (x1 > Constants.WIDTH) x1 = Constants.WIDTH;
+      if (x1 > this.width) x1 = this.width;
       if (y0 < 0) y0 = 0;
-      if (y1 > Constants.HEIGHT) y1 = Constants.HEIGHT;
-
+      if (y1 > this.height) y1 = this.height;
+      //  Cache Values
+      const perCache = p1.y - p0.y;
+      // Fill Rect
       for (let y = y0; y < y1; ++y) {
-        let per = (y - p0.y) / (p1.y - p0.y);
+        const per = (y - p0.y) / perCache;
 
-        let x = p0.x + (p1.x - p0.x) * per;
-        let z = 1 / ((1 - per) / v0.pos.z + per / v1.pos.z);
+        const x = p0.x + (p1.x - p0.x) * per;
+        const z = 1 / ((1 - per) / v0.pos.z + per / v1.pos.z);
 
-        let c = Util.lerp2AttributeVec3(
+        const c = Util.lerp2AttributeVec3(
           v0.color,
           v1.color,
           1 - per,
@@ -186,15 +186,16 @@ export class Renderer extends Bitmap {
           v1.pos.z,
           z
         );
-        this.renderPixel(new Vec3(Util.int(x), Util.int(y), z), c);
+        this.renderPixel(
+          new Vec3(Util.int(x), Util.int(y), z),
+          Util.convertVectorToColorHex(c)
+        );
       }
     }
   }
-
   public drawFace(f: Face): void {
     this.drawTriangle(f.v0, f.v1, f.v2);
   }
-
   // Expect the input vertices to be in the local space
   public drawTriangle(v0: Vertex, v1: Vertex, v2: Vertex): void {
     // Render CCW
@@ -214,11 +215,9 @@ export class Renderer extends Bitmap {
       v1.normal = normal;
       v2.normal = normal;
     }
-
     v0 = this.modelTransform(v0);
     v1 = this.modelTransform(v1);
     v2 = this.modelTransform(v2);
-
     // Render Face normal
     if (
       this.checkFlag(RENDER_FACE_NORMAL) &&
@@ -239,7 +238,6 @@ export class Renderer extends Bitmap {
         )
       );
     }
-
     // Render Vertex normal
     if (this.checkFlag(RENDER_VERTEX_NORMAL)) {
       const pos = v0.pos;
@@ -248,7 +246,6 @@ export class Renderer extends Bitmap {
         new Vertex(pos.add(v0.normal.mul(NORMAL_LENGTH)), 0x0000ff)
       );
     }
-
     // Render Tangent space
     if (this.checkFlag(RENDER_TANGENT_SPACE) && v0.tangent != undefined) {
       const pos = v0.pos.add(v1.pos).add(v2.pos).div(3);
@@ -265,20 +262,16 @@ export class Renderer extends Bitmap {
         new Vertex(pos.add(v0.normal.mul(NORMAL_LENGTH)), 0x0000ff)
       );
     }
-
     v0 = this.viewTransform(v0);
     v1 = this.viewTransform(v1);
     v2 = this.viewTransform(v2);
-
     // Vertex Shader + Geometry Shader Begin
-    {
-      if (this.normalMap != undefined) {
-        this.tbn = this.tbn.fromAxis(
-          v0.tangent,
-          v0.biTangent,
-          v0.normal.add(v1.normal).add(v2.normal).normalized()
-        );
-      }
+    if (this.normalMap != undefined) {
+      this.tbn = this.tbn.fromAxis(
+        v0.tangent,
+        v0.biTangent,
+        v0.normal.add(v1.normal).add(v2.normal).normalized()
+      );
     }
     // Vertex Shader + Geometry Shader End
 
@@ -308,9 +301,7 @@ export class Renderer extends Bitmap {
       const cvToNear = cv.pos.z - this.zClipNear;
       const nvToNear = nv.pos.z - this.zClipNear;
 
-      if (cvToNear < 0 && nvToNear < 0) {
-        continue;
-      }
+      if (cvToNear < 0 && nvToNear < 0) continue;
 
       // If the edge intersects with z-Near plane
       if (cvToNear * nvToNear < 0) {
@@ -322,9 +313,7 @@ export class Renderer extends Bitmap {
           nv.texCoord.sub(cv.texCoord).mul(per)
         );
 
-        if (cvToNear > 0) {
-          drawVertices.push(cv);
-        }
+        if (cvToNear > 0) drawVertices.push(cv);
 
         drawVertices.push(
           new Vertex(clippedPos, clippedCol, clippedTxC, cv.normal)
@@ -363,16 +352,16 @@ export class Renderer extends Bitmap {
     // Transform a vertices in camera space to viewport space at one time (Avoid heavy matrix multiplication)
     // Projection transform + viewport transform
     const p0 = new Vec2(
-      (vp0.pos.x / vp0.pos.z) * Constants.FOV + Constants.WIDTH / 2.0 - 0.5,
-      (vp0.pos.y / vp0.pos.z) * Constants.FOV + Constants.HEIGHT / 2.0 - 0.5
+      (vp0.pos.x / vp0.pos.z) * Constants.FOV + this.width / 2.0 - 0.5,
+      (vp0.pos.y / vp0.pos.z) * Constants.FOV + this.height / 2.0 - 0.5
     );
     const p1 = new Vec2(
-      (vp1.pos.x / vp1.pos.z) * Constants.FOV + Constants.WIDTH / 2.0 - 0.5,
-      (vp1.pos.y / vp1.pos.z) * Constants.FOV + Constants.HEIGHT / 2.0 - 0.5
+      (vp1.pos.x / vp1.pos.z) * Constants.FOV + this.width / 2.0 - 0.5,
+      (vp1.pos.y / vp1.pos.z) * Constants.FOV + this.height / 2.0 - 0.5
     );
     const p2 = new Vec2(
-      (vp2.pos.x / vp2.pos.z) * Constants.FOV + Constants.WIDTH / 2.0 - 0.5,
-      (vp2.pos.y / vp2.pos.z) * Constants.FOV + Constants.HEIGHT / 2.0 - 0.5
+      (vp2.pos.x / vp2.pos.z) * Constants.FOV + this.width / 2.0 - 0.5,
+      (vp2.pos.y / vp2.pos.z) * Constants.FOV + this.height / 2.0 - 0.5
     );
 
     let minX = Math.ceil(Math.min(p0.x, p1.x, p2.x));
@@ -382,8 +371,8 @@ export class Renderer extends Bitmap {
 
     if (minX < 0) minX = 0;
     if (minY < 0) minY = 0;
-    if (maxX > Constants.WIDTH) maxX = Constants.WIDTH;
-    if (maxY > Constants.HEIGHT) maxY = Constants.HEIGHT;
+    if (maxX > this.width) maxX = this.width;
+    if (maxY > this.height) maxY = this.height;
 
     const v10 = new Vec2(p1.x - p0.x, p1.y - p0.y);
     const v21 = new Vec2(p2.x - p1.x, p2.y - p1.y);
@@ -407,9 +396,7 @@ export class Renderer extends Bitmap {
         let w2 = v10.cross(p.sub(p0));
 
         // Render Clock wise
-        if (w0 < 0 || w1 < 0 || w2 < 0) {
-          continue;
-        }
+        if (w0 < 0 || w1 < 0 || w2 < 0) continue;
 
         w0 /= area;
         w1 /= area;
@@ -438,13 +425,9 @@ export class Renderer extends Bitmap {
             .add(vp1.pos.mul(w1))
             .add(vp2.pos.mul(w2))
             .mulXYZ(1, 1, -1);
-          // let c = Util.lerp3AttributeVec3(v0.color, v1.color, v2.color, w0, w1, w2, z0, z1, z2, z);
 
           let pixelNormal = undefined;
-          if (
-            this.normalMap != undefined &&
-            !this.checkFlag(DISABLE_NORMAL_MAPPING)
-          ) {
+          if (this.normalMap != undefined) {
             const _sampledNormal = Util.sample(this.normalMap, uv.x, uv.y);
             let sampledNormal =
               Util.convertColorToVectorRange2(_sampledNormal).normalized();
@@ -471,17 +454,19 @@ export class Renderer extends Bitmap {
           }
 
           if (this.difuseMap == undefined) {
-            color = Util.lerp3AttributeVec3(
-              vp0.color,
-              vp1.color,
-              vp2.color,
-              w0,
-              w1,
-              w2,
-              z0,
-              z1,
-              z2,
-              z
+            color = Util.convertVectorToColorHex(
+              Util.lerp3AttributeVec3(
+                vp0.color,
+                vp1.color,
+                vp2.color,
+                w0,
+                w1,
+                w2,
+                z0,
+                z1,
+                z2,
+                z
+              )
             );
           } else {
             color = Util.sample(this.difuseMap, uv.x, uv.y);
@@ -513,17 +498,13 @@ export class Renderer extends Bitmap {
           }
         }
         // Fragment(Pixel) Shader End
-
         this.renderPixel(new Vec3(x, y, z + depthMin), color);
       }
     }
   }
-  public drawModel(model: Model, flag): void {
-    if (flag == undefined) {
-      this.renderFlag |= RENDER_CCW;
-    } else {
-      this.renderFlag = flag;
-    }
+  public drawModel(model: Model, flag?: number): void {
+    if (flag == undefined) this.renderFlag |= RENDER_CCW;
+    else this.renderFlag = flag;
 
     for (let i = 0; i < model.faces.length; ++i) {
       this.drawFace(model.faces[i]);
@@ -571,14 +552,8 @@ export class Renderer extends Bitmap {
 
     return new Vertex(newPos, v.color, v.texCoord, newNor, newTan, newBiTan);
   }
-  public renderPixel(p: Vec3, c: Vec3 | number): void {
-    if (typeof c != "number") {
-      c = Util.convertVectorToColorHex(c);
-    }
-
-    if (
-      p.z >= this.zBuffer[p.x + (Constants.HEIGHT - 1 - p.y) * Constants.WIDTH]
-    ) {
+  public renderPixel(p: Vec3, c: number): void {
+    if (p.z >= this.zBuffer[p.x + (this.height - 1 - p.y) * this.width]) {
       return;
     }
 
@@ -586,10 +561,15 @@ export class Renderer extends Bitmap {
       return;
     }
 
-    this.pixels[p.x + (Constants.HEIGHT - 1 - p.y) * this.width] = c;
-    this.zBuffer[p.x + (Constants.HEIGHT - 1 - p.y) * this.width] = p.z;
+    this.pixels[p.x + (this.height - 1 - p.y) * this.width] = c;
+    this.zBuffer[p.x + (this.height - 1 - p.y) * this.width] = p.z;
   }
-  public setMaterial(diffuseMap, normalMap, specularIntensity, normalMapFlipY) {
+  public setMaterial(
+    diffuseMap: Bitmap | undefined,
+    normalMap?: Bitmap,
+    specularIntensity?: number,
+    normalMapFlipY?: boolean
+  ) {
     this.difuseMap = diffuseMap;
     this.normalMap = normalMap;
     this.specularIntensity = specularIntensity;
@@ -606,6 +586,13 @@ export class Renderer extends Bitmap {
       this.defaultRenderFlag &= ~flag;
     } else {
       this.defaultRenderFlag |= flag;
+    }
+  }
+  // Public Methods
+  public drawGameObjects(camera: GameObject, gameObjects: GameObject[]): void {
+    // For Each GameObject
+    for (const gameObject of gameObjects) {
+      // Get Game Object Data
     }
   }
 }

@@ -128,6 +128,21 @@ export function lerp3AttributeVec3(
   return new Vec3(wa.x + wb.x + wc.x, wa.y + wb.y + wc.y, wa.z + wb.z + wc.z);
 }
 
+export const lerpColor = (pFrom:number, pTo:number, pRatio:number): number => {
+  const ar = (pFrom & 0xFF0000) >> 16,
+        ag = (pFrom & 0x00FF00) >> 8,
+        ab = (pFrom & 0x0000FF),
+
+        br = (pTo & 0xFF0000) >> 16,
+        bg = (pTo & 0x00FF00) >> 8,
+        bb = (pTo & 0x0000FF),
+
+        rr = ar + pRatio * (br - ar),
+        rg = ag + pRatio * (bg - ag),
+        rb = ab + pRatio * (bb - ab);
+  return (rr << 16) + (rg << 8) + (rb | 0);
+};
+
 export function convertColorToVectorRange2(hex: number): Vec3 {
   const r = ((hex >> 16) & 0xff) / 127.5 - 1.0;
   const g = ((hex >> 8) & 0xff) / 127.5 - 1.0;

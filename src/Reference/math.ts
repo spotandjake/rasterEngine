@@ -244,12 +244,7 @@ export class Mat4 {
 
     return res;
   }
-  public scale(x: number, y: number, z: number): Mat4 {
-    if (y == undefined && z == undefined) {
-      y = x;
-      z = x;
-    }
-
+  public scale(x: number, y: number = x, z: number = x): Mat4 {
     let scale = new Mat4();
     scale.m00 = x;
     scale.m11 = y;

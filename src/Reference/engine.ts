@@ -28,7 +28,6 @@ export class Engine {
   }
 
   public init(): void {
-
     window.addEventListener("keydown", function (e) {
       if (e.key == " " && e.target == document.body) {
         e.preventDefault();
@@ -218,11 +217,7 @@ export class Engine {
       this.gfx.drawImage(this.tmpCvs, 0, 0);
       this.gfx.restore();
     } else {
-      this.gfx.putImageData(
-        Util.convertBitmapToImageData(this.renderer),
-        0,
-        0
-      );
+      this.gfx.putImageData(Util.convertBitmapToImageData(this.renderer), 0, 0);
     }
   }
 }

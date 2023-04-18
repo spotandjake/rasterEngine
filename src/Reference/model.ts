@@ -7,7 +7,7 @@ export class Model {
   private vTexCoords: number[][];
   private vNormals: number[][];
   private indices: number[][][];
-  private faces: Face[];
+  public faces: Face[];
   constructor(vPositions: number[][], vTexCoords: number[][], vNormals: number[][], indices: number[][][]) {
     this.vPositions = vPositions;
     this.vTexCoords = vTexCoords;

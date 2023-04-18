@@ -48,8 +48,8 @@ let loadSkyBoxTexture = async (imageUrl: string, imgWidth: number, imgHeight: nu
 // Load Assets
 const monkeyObj = await fetch('./monkey.obj').then((res) => res.text());
 const skyBoxTex = await loadSkyBoxTexture('./imgs/skybox3.png', 2048, 1536);
-console.log(skyBoxTex);
 // ParseModel
 const modelParser = new ModelParser();
 const monkeyModel = modelParser.ObjParser(monkeyObj);
+// Create Our Game Objects
 // Start The Engine
