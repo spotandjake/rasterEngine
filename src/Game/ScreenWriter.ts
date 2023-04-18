@@ -1,6 +1,8 @@
 // This file contains all logic for drawing to the canvas.
 class ScreenWriter {
   // Internals
+  private offScreenCanvas: HTMLCanvasElement;
+  private offScreenContext: CanvasRenderingContext2D;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private frameBuffer: ImageData = new ImageData(1, 1);
@@ -9,13 +11,16 @@ class ScreenWriter {
   // Constructor
   constructor(width: number, height: number) {
     // Create The Canvas
-    this.canvas = document.createElement('canvas');
+    this.canvas = document.createElement("canvas");
     // Get The Context
-    this.ctx = this.canvas.getContext('2d')!;
+    this.ctx = this.canvas.getContext("2d")!;
     // Set The Size
     this.setSize(width, height);
     // Add The Canvas to The Screen
-    document.querySelector<HTMLDivElement>('#app')!.appendChild(this.canvas);
+    document.querySelector<HTMLDivElement>("#app")!.appendChild(this.canvas);
+    // Create Off Screen Item
+    this.offScreenCanvas = document.createElement("canvas");
+    this.offScreenContext = this.offScreenCanvas.getContext("2d")!;
   }
   // Internal Methods
   private setSize(width: number, height: number): void {
@@ -49,23 +54,34 @@ class ScreenWriter {
     // Calculate the pixel index
     const index = 4 * (x + y * width);
     // Set Our Color
-    frameBuffer.data[index+0] = ((color >> 16) & 0xff) / 127.5 - 1.0
-    frameBuffer.data[index+1] = ((color >> 8) & 0xff) / 127.5 - 1.0;
-    frameBuffer.data[index+2] = (color & 0xff) / 127.5 - 1.0;
+    frameBuffer.data[index + 0] = ((color >> 16) & 0xff) / 127.5 - 1.0;
+    frameBuffer.data[index + 1] = ((color >> 8) & 0xff) / 127.5 - 1.0;
+    frameBuffer.data[index + 2] = (color & 0xff) / 127.5 - 1.0;
     // We don't really have a need for alpha as of now so we just set it to 255
-    frameBuffer.data[index+3] = 255;
+    frameBuffer.data[index + 3] = 255;
   }
   public getPixel(x: number, y: number): number {
     const { frameBuffer, width } = this;
     // Calculate the pixel index
     const index = 4 * (x + y * width);
-    const r = frameBuffer.data[index+0];
-    const g = frameBuffer.data[index+1];
-    const b = frameBuffer.data[index+2];
+    const r = frameBuffer.data[index + 0];
+    const g = frameBuffer.data[index + 1];
+    const b = frameBuffer.data[index + 2];
     return (r << 16) | (g << 8) | b;
   }
-  public drawFrame(): void {
-    this.ctx.putImageData(this.frameBuffer, 0, 0);     
+  public drawFrame(scale: number): void {
+    // We do not always want to render at full size so we scale it
+    if (scale > 1) {
+      // Resize the imagedata using off-screen rendering
+      this.offScreenContext.putImageData(this.frameBuffer, 0, 0);
+      this.ctx.save();
+      this.ctx.imageSmoothingEnabled = false;
+      this.ctx.scale(scale, scale);
+      this.ctx.drawImage(this.offScreenCanvas, 0, 0);
+      this.ctx.restore();
+    } else {
+      this.ctx.putImageData(this.frameBuffer, 0, 0);
+    }
   }
   // Helpers
   public drawLine(x0: number, y0: number, x1: number, y1: number): void {
@@ -82,14 +98,22 @@ class ScreenWriter {
     if (steep) {
       // Flip Our X's and Y's
       let tmp;
-      tmp = x0; x0 = y0; y0 = tmp;
-      tmp = x1; x1 = y1; y1 = tmp;
+      tmp = x0;
+      x0 = y0;
+      y0 = tmp;
+      tmp = x1;
+      x1 = y1;
+      y1 = tmp;
     }
     if (x0 > x1) {
       // Flip Our X's and Y's
       let tmp;
-      tmp = x0; x0 = x1; x1 = tmp;
-      tmp = y0; y0 = y1; y1 = tmp;
+      tmp = x0;
+      x0 = x1;
+      x1 = tmp;
+      tmp = y0;
+      y0 = y1;
+      y1 = tmp;
     }
     let yStep = y0 < y1 ? 1 : -1;
     let deltaX = x1 - x0;
@@ -98,7 +122,7 @@ class ScreenWriter {
     let index = 0;
     let y = y0;
     for (let x = x0; x <= x1; x++) {
-      // index is vertical coordinate times width, plus horizontal coordinate, 
+      // index is vertical coordinate times width, plus horizontal coordinate,
       // times 4 because every pixel consists of 4 bytes
       if (steep) {
         index = (x * width + y) * 4; // y, x
@@ -111,7 +135,7 @@ class ScreenWriter {
       frameData[index + 2] = 255;
       frameData[index + 3] = 255;
       error += deltaY;
-      if ((error << 1) >= deltaX) {
+      if (error << 1 >= deltaX) {
         y += yStep;
         error -= deltaX;
       }
