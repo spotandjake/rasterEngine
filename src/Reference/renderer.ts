@@ -70,10 +70,7 @@ export class Renderer extends Bitmap {
     const sy = Util.int(
       (v.pos.y / v.pos.z) * Constants.FOV + this.height / 2.0
     );
-    this.renderPixel(
-      new Vec3(sx, sy, v.pos.z),
-      Util.convertVectorToColorHex(v.color)
-    );
+    this.renderPixel(sx, sy, v.pos.z, Util.convertVectorToColorHex(v.color));
   }
   private drawLine(v0: Vertex, v1: Vertex): void {
     v0 = this.viewTransform(v0);
@@ -145,7 +142,9 @@ export class Renderer extends Bitmap {
         );
 
         this.renderPixel(
-          new Vec3(Util.int(x), Util.int(y), z),
+          Util.int(x),
+          Util.int(y),
+          z,
           Util.convertVectorToColorHex(c)
         );
       }
@@ -187,7 +186,9 @@ export class Renderer extends Bitmap {
           z
         );
         this.renderPixel(
-          new Vec3(Util.int(x), Util.int(y), z),
+          Util.int(x),
+          Util.int(y),
+          z,
           Util.convertVectorToColorHex(c)
         );
       }
@@ -498,7 +499,7 @@ export class Renderer extends Bitmap {
           }
         }
         // Fragment(Pixel) Shader End
-        this.renderPixel(new Vec3(x, y, z + depthMin), color);
+        this.renderPixel(x, y, z + depthMin, color);
       }
     }
   }
@@ -550,16 +551,16 @@ export class Renderer extends Bitmap {
 
     return new Vertex(newPos, v.color, v.texCoord, newNor, newTan, newBiTan);
   }
-  private renderPixel(p: Vec3, c: number): void {
-    if (p.x < 0 || p.x >= this.width || p.y < 0 || p.y >= this.height) {
+  private renderPixel(x: number, y: number, z: number, c: number): void {
+    if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
       return;
     }
-    if (p.z >= this.zBuffer[p.x + (this.height - 1 - p.y) * this.width]) {
+    if (z >= this.zBuffer[x + (this.height - 1 - y) * this.width]) {
       return;
     }
 
-    this.pixels[p.x + (this.height - 1 - p.y) * this.width] = c;
-    this.zBuffer[p.x + (this.height - 1 - p.y) * this.width] = p.z;
+    this.pixels[x + (this.height - 1 - y) * this.width] = c;
+    this.zBuffer[x + (this.height - 1 - y) * this.width] = z;
   }
   public setMaterial(
     diffuseMap: Bitmap | undefined,
